@@ -17,6 +17,13 @@ import TruthChallenge from './challenges/TruthChallenge';
 // Helper function to get a random element from an array
 const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
+// Helper function to get 3 random challenges, optionally excluding one
+const getRandomChallenges = (allChallenges, count = 3, exclude = null) => {
+  const availableOptions = exclude ? allChallenges.filter(c => c !== exclude) : allChallenges;
+  const shuffled = [...availableOptions].sort(() => 0.5 - Math.random());
+  return shuffled.slice(0, count);
+};
+
 const challengeComponents = [
   'Trivia', 'Gamble', 'Physical', 'Friendship', 'Harmony', 'Truth'
 ];
@@ -30,15 +37,13 @@ export default function GameBoard() {
   const [bombTimer, setBombTimer] = useState(300); // 5 minutes
   const [isGameActive, setIsGameActive] = useState(false);
   const [gameMessage, setGameMessage] = useState({ text: '', type: 'win' });
+  const [sipDistribution, setSipDistribution] = useState(null);
 
   // Challenge State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [currentChallenge, setCurrentChallenge] = useState(null);
   const [notification, setNotification] = useState('');
-
-  // Cooldown State
-  const [challengeCooldowns, setChallengeCooldowns] = useState({});
-  const [lastPlayedInfo, setLastPlayedInfo] = useState({ challenge: null, consecutive: 0 });
+  const [availableChallenges, setAvailableChallenges] = useState([]);
 
   // Setup game on component mount
   useEffect(() => {
@@ -52,14 +57,14 @@ export default function GameBoard() {
         console.error("Could not save players to localStorage", error);
       }
       
-      // Randomize initial settings
-      setBombSips(Math.floor(Math.random() * 16) + 15); // 15-30 sips
+      // Randomize initial settings based on player count
+      const numPlayers = decodedPlayers.length;
+      setBombSips(Math.floor(Math.random() * 11) + 5 * numPlayers + 5); // e.g., 4 players: 25-35 sips
       setBombTimer(Math.floor(Math.random() * 121) + 180); // 3-5 minutes
       setIsGameActive(true);
 
-      // Initialize cooldowns
-      const initialCooldowns = challengeComponents.reduce((acc, c) => ({ ...acc, [c]: 0 }), {});
-      setChallengeCooldowns(initialCooldowns);
+      // Initialize with 3 random challenges
+      setAvailableChallenges(getRandomChallenges(challengeComponents));
     }
   }, [searchParams]);
 
@@ -69,7 +74,19 @@ export default function GameBoard() {
 
     if (bombTimer <= 0) {
       setIsGameActive(false);
-      setGameMessage({ text: `BOOM! The bomb exploded! Time for the final ${bombSips} sips!`, type: 'loss' });
+
+      const distribution = players.reduce((acc, player) => {
+        acc[player] = 0;
+        return acc;
+      }, {});
+
+      for (let i = 0; i < bombSips; i++) {
+        const randomPlayer = players[Math.floor(Math.random() * players.length)];
+        distribution[randomPlayer]++;
+      }
+      
+      setSipDistribution(distribution);
+      setGameMessage({ text: `BOOM! The bomb exploded! The final ${bombSips} sips have been distributed.`, type: 'loss' });
       return;
     }
 
@@ -78,26 +95,7 @@ export default function GameBoard() {
     }, 1000);
 
     return () => clearInterval(timerId);
-  }, [isGameActive, bombTimer, bombSips]);
-  
-  // Cooldown timer
-  useEffect(() => {
-    if (!isGameActive) return;
-
-    const timerId = setInterval(() => {
-      setChallengeCooldowns(prev => {
-        const newCooldowns = { ...prev };
-        Object.keys(newCooldowns).forEach(challenge => {
-          if (newCooldowns[challenge] > 0) {
-            newCooldowns[challenge] -= 1;
-          }
-        });
-        return newCooldowns;
-      });
-    }, 1000);
-
-    return () => clearInterval(timerId);
-  }, [isGameActive]);
+  }, [isGameActive, bombTimer, bombSips, players]);
 
   const showNotification = (message) => {
     setNotification(message);
@@ -113,22 +111,13 @@ export default function GameBoard() {
   const handleChallengeComplete = (result) => {
     setIsModalOpen(false);
 
-    // Cooldown logic
-    const newConsecutive = currentChallenge === lastPlayedInfo.challenge 
-      ? lastPlayedInfo.consecutive + 1 
-      : 1;
-
-    setChallengeCooldowns(prev => ({ 
-      ...prev, 
-      [currentChallenge]: 10 * newConsecutive 
-    }));
-
-    setLastPlayedInfo({ 
-      challenge: currentChallenge, 
-      consecutive: newConsecutive 
-    });
-
+    // Generate new random challenges for next round, excluding the one just completed
+    setAvailableChallenges(getRandomChallenges(challengeComponents, 3, currentChallenge));
+    
     setCurrentChallenge(null);
+
+    // Scale sips rewards/punishments with player count
+    const sipsScale = Math.max(1, Math.floor(players.length / 2));
 
     // Default values
     let sipsChange = 0;
@@ -136,10 +125,10 @@ export default function GameBoard() {
     
     // Process result
     if (result.success) {
-      sipsChange = result.sipsChange || -3; // Default reward
+      sipsChange = result.sipsChange || -3 * sipsScale; // Default reward
       showNotification(`Success! Bomb sips reduced by ${-sipsChange}!`);
     } else {
-      sipsIncrease = result.sipsIncrease || 3; // Default punishment
+      sipsIncrease = result.sipsIncrease || 3 * sipsScale; // Default punishment
       if (result.instantSips) {
           showNotification(`Failure! Everyone drinks ${result.instantSips} now! Bomb sips increased by ${sipsIncrease}.`);
       } else {
@@ -192,7 +181,19 @@ export default function GameBoard() {
             <h2 className={`text-4xl font-bold mb-4 ${gameMessage.type === 'win' ? 'text-green-400' : 'text-red-500'}`}>
                 {gameMessage.type === 'win' ? 'YOU WIN!' : 'GAME OVER'}
             </h2>
-            <p className="text-xl text-gray-300">{gameMessage.text}</p>
+            <p className="text-xl text-gray-300 mb-6">{gameMessage.text}</p>
+            {sipDistribution && (
+              <div className="mb-6">
+                <h3 className="text-2xl text-yellow-400 font-bold mb-4">Final Sip Count:</h3>
+                <ul className="text-lg text-white list-none p-0">
+                  {Object.entries(sipDistribution).sort((a, b) => b[1] - a[1]).map(([player, sips]) => (
+                    <li key={player} className="mb-2">
+                      <span className="font-bold text-yellow-300">{player}:</span> {sips} sips
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             <Link href="/" className="mt-8 inline-block bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg transition-colors hover:bg-yellow-400">
                 Play Again
             </Link>
@@ -203,14 +204,13 @@ export default function GameBoard() {
             <div className="mt-8 text-center w-full max-w-2xl">
               <h3 className="text-2xl font-bold text-yellow-400 mb-4">Choose Your Challenge!</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {challengeComponents.map(challenge => (
+                {availableChallenges.map(challenge => (
                   <button 
                     key={challenge}
                     onClick={() => handleChallengeSelect(challenge)}
-                    className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-lg transition-transform transform hover:scale-105 disabled:bg-gray-800 disabled:cursor-not-allowed disabled:transform-none"
-                    disabled={challengeCooldowns[challenge] > 0}
+                    className="bg-gray-700 hover:bg-gray-600 text-white font-bold py-4 px-6 rounded-lg transition-transform transform hover:scale-105"
                   >
-                    {challengeCooldowns[challenge] > 0 ? `${challenge} (${challengeCooldowns[challenge]}s)` : challenge}
+                    {challenge}
                   </button>
                 ))}
               </div>
