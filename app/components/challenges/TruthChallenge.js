@@ -27,7 +27,7 @@ export default function TruthChallenge({ players, onComplete }) {
             <p className="text-xl mb-6">
                 <span className="font-bold text-red-500">{player}</span>, you must answer this question truthfully or the whole team pays the price.
             </p>
-            <p className="text-2xl font-semibold mb-8">"{question}"</p>
+            <p className="text-2xl font-semibold mb-8">&quot;{question}&quot;</p>
             <div className="flex justify-center gap-4">
                 <button onClick={() => onComplete({ success: true, sipsChange: -5 })} className="bg-green-600 hover:bg-green-500 text-white font-bold py-3 px-8 rounded-lg text-lg">
                     Truth Answered!

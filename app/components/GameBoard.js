@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 import Bomb from './Bomb';
 import ChallengeModal from './ChallengeModal';
 
@@ -185,9 +186,9 @@ export default function GameBoard() {
                 {gameMessage.type === 'win' ? 'YOU WIN!' : 'GAME OVER'}
             </h2>
             <p className="text-xl text-gray-300">{gameMessage.text}</p>
-            <a href="/" className="mt-8 inline-block bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg transition-colors hover:bg-yellow-400">
+            <Link href="/" className="mt-8 inline-block bg-yellow-500 text-gray-900 font-bold py-3 px-6 rounded-lg transition-colors hover:bg-yellow-400">
                 Play Again
-            </a>
+            </Link>
         </div>
       ) : (
         <>
