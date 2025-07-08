@@ -5,6 +5,9 @@ import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Bomb from './Bomb';
 import ChallengeModal from './ChallengeModal';
+import RandomEventModal from './RandomEventModal';
+import { generateRandomEvent } from '../lib/events';
+import { getRandom } from '../lib/utils';
 
 // Dynamically import challenges to keep initial bundle small
 import TriviaChallenge from './challenges/TriviaChallenge';
@@ -15,10 +18,10 @@ import HarmonyChallenge from './challenges/HarmonyChallenge';
 import TruthChallenge from './challenges/TruthChallenge';
 
 // Helper function to get a random element from an array
-const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
+// const getRandom = (arr) => arr[Math.floor(Math.random() * arr.length)];
 
-// Helper function to get 3 random challenges, optionally excluding one
-const getRandomChallenges = (allChallenges, count = 3, exclude = null) => {
+// Helper function to get 2 random challenges, optionally excluding one
+const getRandomChallenges = (allChallenges, count = 2, exclude = null) => {
   const availableOptions = exclude ? allChallenges.filter(c => c !== exclude) : allChallenges;
   const shuffled = [...availableOptions].sort(() => 0.5 - Math.random());
   return shuffled.slice(0, count);
@@ -36,6 +39,7 @@ export default function GameBoard() {
   const [bombSips, setBombSips] = useState(20);
   const [bombTimer, setBombTimer] = useState(300); // 5 minutes
   const [isGameActive, setIsGameActive] = useState(false);
+  const [isTimerPaused, setIsTimerPaused] = useState(false);
   const [gameMessage, setGameMessage] = useState({ text: '', type: 'win' });
   const [sipDistribution, setSipDistribution] = useState(null);
 
@@ -44,6 +48,10 @@ export default function GameBoard() {
   const [currentChallenge, setCurrentChallenge] = useState(null);
   const [notification, setNotification] = useState('');
   const [availableChallenges, setAvailableChallenges] = useState([]);
+
+  // Random Event State
+  const [randomEvent, setRandomEvent] = useState(null);
+  const [gameRules, setGameRules] = useState([]);
 
   // Setup game on component mount
   useEffect(() => {
@@ -63,14 +71,14 @@ export default function GameBoard() {
       setBombTimer(Math.floor(Math.random() * 121) + 180); // 3-5 minutes
       setIsGameActive(true);
 
-      // Initialize with 3 random challenges
+      // Initialize with 2 random challenges
       setAvailableChallenges(getRandomChallenges(challengeComponents));
     }
   }, [searchParams]);
 
   // Game timer countdown
   useEffect(() => {
-    if (!isGameActive) return;
+    if (!isGameActive || isTimerPaused) return;
 
     if (bombTimer <= 0) {
       setIsGameActive(false);
@@ -95,7 +103,7 @@ export default function GameBoard() {
     }, 1000);
 
     return () => clearInterval(timerId);
-  }, [isGameActive, bombTimer, bombSips, players]);
+  }, [isGameActive, bombTimer, bombSips, players, isTimerPaused]);
 
   const showNotification = (message) => {
     setNotification(message);
@@ -104,6 +112,9 @@ export default function GameBoard() {
 
   const handleChallengeSelect = (challengeType) => {
     if (!isGameActive) return;
+    if (challengeType === 'Physical') {
+      setIsTimerPaused(true);
+    }
     setCurrentChallenge(challengeType);
     setIsModalOpen(true);
   };
@@ -111,8 +122,13 @@ export default function GameBoard() {
   const handleChallengeComplete = (result) => {
     setIsModalOpen(false);
 
+    // Resume timer if it was a physical challenge
+    if (currentChallenge === 'Physical') {
+      setIsTimerPaused(false);
+    }
+
     // Generate new random challenges for next round, excluding the one just completed
-    setAvailableChallenges(getRandomChallenges(challengeComponents, 3, currentChallenge));
+    setAvailableChallenges(getRandomChallenges(challengeComponents, 2, currentChallenge));
     
     setCurrentChallenge(null);
 
@@ -148,6 +164,35 @@ export default function GameBoard() {
         setBombSips(0);
     } else {
         setBombSips(newSipCount);
+    }
+
+    // Check for random event after a challenge is completed
+    const EVENT_PROBABILITY = 0.2; // 20% chance (1 in 5)
+    if (isGameActive && Math.random() < EVENT_PROBABILITY) {
+      const event = generateRandomEvent(players, gameRules);
+      if (event) {
+        setRandomEvent(event);
+        setIsTimerPaused(true);
+      }
+    }
+  };
+
+  const handleCloseEventModal = () => {
+    if (!randomEvent) return;
+
+    if (randomEvent.type === 'new_rule') {
+      setGameRules(prevRules => [...prevRules, randomEvent.newRule]);
+      showNotification('A new rule has been added!');
+    }
+    if (randomEvent.type === 'timer_and_sips_doubled') {
+      setBombTimer(timer => timer * 2);
+      setBombSips(sips => sips * 2);
+      showNotification(`Double trouble! Time and sips have been doubled!`);
+    }
+
+    setRandomEvent(null);
+    if (isGameActive) {
+      setIsTimerPaused(false);
     }
   };
 
@@ -203,7 +248,7 @@ export default function GameBoard() {
             <Bomb sips={bombSips} timeLeft={bombTimer} />
             <div className="mt-8 text-center w-full max-w-2xl">
               <h3 className="text-2xl font-bold text-yellow-400 mb-4">Choose Your Challenge!</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 gap-4">
                 {availableChallenges.map(challenge => (
                   <button 
                     key={challenge}
@@ -226,9 +271,20 @@ export default function GameBoard() {
                 ))}
               </div>
             </div>
+
+            {gameRules.length > 0 && (
+              <div className="fixed bottom-4 right-4 bg-gray-800 bg-opacity-80 p-4 rounded-lg shadow-lg max-w-xs z-40 border border-yellow-500">
+                <h4 className="font-bold text-yellow-400 mb-2 border-b border-gray-600 pb-1">Active Rules:</h4>
+                <ul className="text-sm text-white list-disc list-inside space-y-1">
+                  {gameRules.map(rule => <li key={rule.id}>{rule.text}</li>)}
+                </ul>
+              </div>
+            )}
+
             <ChallengeModal isOpen={isModalOpen} bombSips={bombSips} bombTimer={bombTimer}>
               {renderChallenge()}
             </ChallengeModal>
+            <RandomEventModal isOpen={!!randomEvent} event={randomEvent} onClose={handleCloseEventModal} />
         </>
       )}
     </main>

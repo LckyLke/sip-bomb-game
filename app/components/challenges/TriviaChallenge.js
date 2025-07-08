@@ -40,7 +40,7 @@ export default function TriviaChallenge({ players, onComplete }) {
                     console.error(`Fetch trivia attempt ${i + 1} failed.`, error);
                 }
                 // Wait 1 second before the next attempt
-                await new Promise(res => setTimeout(res, 1000));
+                await new Promise(res => setTimeout(res, 1200));
             }
 
             console.error("Failed to fetch trivia after 5 attempts.");

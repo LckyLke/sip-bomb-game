@@ -2,27 +2,41 @@
 
 import { useState, useEffect } from 'react';
 
-const prompts = [
-    { words: ["Green", "Tasty"], players: 2 },
-    { words: ["Sharp", "Shiny"], players: 2 },
-    { words: ["Big", "Scary"], players: 3 },
-    { words: ["Fast", "Expensive"], players: 2 },
-    { words: ["Soft", "Warm"], players: 3 },
-];
-
 export default function HarmonyChallenge({ players, onComplete }) {
     const [prompt, setPrompt] = useState(null);
     const [selectedPlayers, setSelectedPlayers] = useState([]);
 
     useEffect(() => {
-        const selectedPrompt = prompts[Math.floor(Math.random() * prompts.length)];
-        // Ensure we have enough players for the prompt
-        const numPlayersToSelect = Math.min(selectedPrompt.players, players.length);
-        
-        // Shuffle players and pick the first few
-        const shuffledPlayers = [...players].sort(() => 0.5 - Math.random());
-        setSelectedPlayers(shuffledPlayers.slice(0, numPlayersToSelect));
-        setPrompt(selectedPrompt);
+        const fetchAdjectives = async () => {
+            try {
+                const response = await fetch('/adjectives.txt');
+                const text = await response.text();
+                const adjectives = text.split('\n').filter(adj => adj.trim() !== '');
+
+                // Get two random different adjectives
+                const adj1Index = Math.floor(Math.random() * adjectives.length);
+                let adj2Index = Math.floor(Math.random() * adjectives.length);
+                while (adj1Index === adj2Index) {
+                    adj2Index = Math.floor(Math.random() * adjectives.length);
+                }
+                const selectedAdjectives = [adjectives[adj1Index], adjectives[adj2Index]];
+
+                // Get random number of players (from 2 to players.length)
+                const minPlayers = 2;
+                const maxPlayers = players.length;
+                const numPlayersToSelect = Math.floor(Math.random() * (maxPlayers - minPlayers + 1)) + minPlayers;
+                
+                // Shuffle players and pick the first few
+                const shuffledPlayers = [...players].sort(() => 0.5 - Math.random());
+                setSelectedPlayers(shuffledPlayers.slice(0, numPlayersToSelect));
+                setPrompt({ words: selectedAdjectives });
+            } catch (error) {
+                console.error("Failed to load adjectives:", error);
+                // Handle error, maybe set a default prompt or show an error message
+            }
+        };
+
+        fetchAdjectives();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
     
