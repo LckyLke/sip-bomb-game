@@ -5,65 +5,79 @@ const possibleRules = [
   // Original Rules
   { 
     id: 't-rex', 
-    text: 'T-Rex Arms: Keep your elbows tucked to your sides at all times.' 
+    text: 'T-Rex Arms: Keep your elbows tucked to your sides at all times.',
+    abbreviation: 'T-Rex Arms' 
   },
   {
     id: 'yes-no-ok',
-    text: "You cannot say the words 'yes', 'no', or 'ok'. If you do, you drink."
+    text: "You cannot say the words 'yes', 'no', or 'ok'. If you do, you drink.",
+    abbreviation: "No 'Yes/No/OK'"
   },
   { 
     id: 'no-pointing', 
-    text: 'No Pointing: You cannot point at anyone or anything with your fingers.' 
+    text: 'No Pointing: You cannot point at anyone or anything with your fingers.',
+    abbreviation: 'No Pointing' 
   },
   { 
     id: 'green-man', 
-    text: 'Little Green Man: Before you drink, you must remove an imaginary little green man from your cup and place him on the table. After you drink, you must put him back.' 
+    text: 'Little Green Man: Before you drink, you must remove an imaginary little green man from your cup and place him on the table. After you drink, you must put him back.',
+    abbreviation: 'Little Green Man' 
   },
   {
     id: 'question-master',
     text: '{player} is the Question Master. If you answer any of their questions, you drink.',
-    requiresPlayer: true
+    requiresPlayer: true,
+    abbreviation: '{player}: Question Master'
   },
   // New Rules
   {
     id: 'thumb-master',
     text: '{player} is the Thumb Master. When they secretly place their thumb on the table, everyone else must do the same. The last person to do so drinks.',
-    requiresPlayer: true
+    requiresPlayer: true,
+    abbreviation: '{player}: Thumb Master'
   },
   {
     id: 'no-first-names',
-    text: "No First Names: You can't call anyone by their first name. Give everyone nicknames or be creative."
+    text: "No First Names: You can't call anyone by their first name. Give everyone nicknames or be creative.",
+    abbreviation: 'No First Names'
   },
   {
     id: 'viking-master',
     text: "{player} is the Viking Master. When they make horns on their head with their fingers, everyone must start rowing an imaginary Viking ship. The last person to start rowing drinks.",
-    requiresPlayer: true
+    requiresPlayer: true,
+    abbreviation: '{player}: Viking Master'
   },
   {
     id: 'left-hand-drink',
-    text: "Weak Hand Challenge: You must only hold your drink and drink with your non-dominant hand."
+    text: "Weak Hand Challenge: You must only hold your drink and drink with your non-dominant hand.",
+    abbreviation: 'Weak Hand Only'
   },
   {
     id: 'no-swearing',
-    text: "The Care Bear Stare: No swearing is allowed. The penalty for cursing is a drink."
+    text: "The Care Bear Stare: No swearing is allowed. The penalty for cursing is a drink.",
+    abbreviation: 'No Swearing'
   },
   {
     id: 'the-jester',
     text: "{player} is the Jester. They are not allowed to laugh or smile. If they do, they drink.",
-    requiresPlayer: true
+    requiresPlayer: true,
+    abbreviation: '{player}: No Laughing'
   },
   {
     id: 'the-parrot',
     text: "{player} is the Parrot. They must repeat the last word of the previous person's sentence before they are allowed to speak.",
-    requiresPlayer: true
+    requiresPlayer: true,
+    abbreviation: '{player}: The Parrot'
   },
   {
     id: 'compliment-rule',
-    text: "The Encourager: Before you take a drink, you must give a genuine compliment to another player."
+    text: "The Encourager: Before you take a drink, you must give a genuine compliment to another player.",
+    abbreviation: 'Compliments Required'
   },
   {
     id: 'no-phone',
-    text: "Digital Detox: No touching your phone. The first person to be caught using their phone gets a penalty drink."
+    text: "Digital Detox: No touching your phone. The first person to be caught using their phone gets a penalty drink.",
+    abbreviation: 'No Phone Use'
   }
 ];
 
@@ -72,9 +86,9 @@ const possibleRules = [
 export const generateRandomEvent = (players, currentRules) => {
   // We can add a 'weight' to make some events more or less common
   const eventTypes = [
-      'drink', 'drink', 'drink', // drink is most common
-      'new_rule', 'new_rule', 
-      'mini_game', 
+      'drink', 'drink', 'drink', 'drink', 'drink', 'drink',  // drink is most common
+      'new_rule', 'new_rule', 'new_rule', 
+      'mini_game', 'mini_game',
       'timer_and_sips_doubled'
     ];
   const type = getRandom(eventTypes);
@@ -166,6 +180,7 @@ export const generateRandomEvent = (players, currentRules) => {
         newRule = { 
             ...newRule, 
             text: newRule.text.replace('{player}', player),
+            abbreviation: newRule.abbreviation.replace('{player}', player),
             player: player // Store which player is assigned
         };
         message = `A new challenger appears! ${newRule.text}. Don't forget who has the power!`;
@@ -204,8 +219,12 @@ export const generateRandomEvent = (players, currentRules) => {
             },
             {
                 title: 'Rhyme Time!',
-                message: "The player who triggered this event says a word. Go clockwise, each player must say a word that rhymes. The first to fail or repeat a word drinks 5 sips!",
-                buttonText: 'Let\'s rhyme!'
+                generate: (players) => {
+                    const starter = getRandom(players);
+                    return {
+                        message: `${starter} says a word to start! Go clockwise, each player must say a word that rhymes. The first to fail or repeat a word drinks 5 sips!`,
+                    };
+                }
             },
             {
                 title: 'Categories!',
@@ -214,8 +233,23 @@ export const generateRandomEvent = (players, currentRules) => {
             },
             {
                 title: 'Staring Contest!',
-                message: 'Two players are chosen at random for an epic STARE-DOWN. The first to blink, laugh, or look away loses and must take 6 sips!',
-                buttonText: 'Let them fight!'
+                generate: (players) => {
+                    if (players.length < 2) {
+                        return {
+                            message: 'Not enough players for a staring contest! Everyone take 3 sips instead.',
+                        };
+                    }
+                    const p1Index = Math.floor(Math.random() * players.length);
+                    let p2Index = Math.floor(Math.random() * players.length);
+                    while (p1Index === p2Index) {
+                        p2Index = Math.floor(Math.random() * players.length);
+                    }
+                    const player1 = players[p1Index];
+                    const player2 = players[p2Index];
+                    return {
+                        message: `${player1} vs ${player2} - epic STARE-DOWN! The first to blink, laugh, or look away loses and must take 6 sips!`,
+                    };
+                }
             },
             {
                 title: 'Rock Paper Scissors CHAMPION!',
@@ -224,9 +258,20 @@ export const generateRandomEvent = (players, currentRules) => {
             }
         ];
 
+        const selectedGame = getRandom(miniGames);
+        
+        if (selectedGame.generate) {
+            return {
+                type: 'mini_game',
+                title: selectedGame.title,
+                ...selectedGame.generate(players),
+                buttonText: selectedGame.buttonText || 'Let\'s go!'
+            };
+        }
+
         return {
             type: 'mini_game',
-            ...getRandom(miniGames)
+            ...selectedGame
         };
     }
 

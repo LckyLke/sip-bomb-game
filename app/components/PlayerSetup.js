@@ -25,7 +25,8 @@ export default function PlayerSetup() {
   const addPlayer = (e) => {
     e.preventDefault();
     if (newPlayer.trim() && !players.includes(newPlayer.trim())) {
-      setPlayers([...players, newPlayer.trim()]);
+      const capitalizedName = newPlayer.trim().charAt(0).toUpperCase() + newPlayer.trim().slice(1);
+      setPlayers([...players, capitalizedName]);
       setNewPlayer('');
     }
   };

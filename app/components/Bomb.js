@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-export default function Bomb({ sips, timeLeft }) {
+export default function Bomb({ sips, timeLeft, isTimerChanged }) {
   const [displaySips, setDisplaySips] = useState(sips);
   const [isAnimating, setIsAnimating] = useState(false);
   const [animationType, setAnimationType] = useState(''); // 'increase' or 'decrease'
@@ -143,7 +143,7 @@ export default function Bomb({ sips, timeLeft }) {
           )}
         </div>
         
-        <p className="text-2xl font-mono text-yellow-400 tracking-widest">
+        <p className={`text-2xl font-mono text-yellow-400 tracking-widest ${isTimerChanged ? 'animate-timer-change' : ''}`}>
           {formatTime(timeLeft)}
         </p>
       </div>
