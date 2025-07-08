@@ -1,12 +1,30 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function PlayerSetup() {
   const [players, setPlayers] = useState([]);
   const [newPlayer, setNewPlayer] = useState('');
   const router = useRouter();
+  const backgroundMusicRef = useRef(null);
+
+  useEffect(() => {
+    if (!backgroundMusicRef.current) {
+        backgroundMusicRef.current = new Audio('/humorous-loop-275485.mp3');
+        backgroundMusicRef.current.loop = true;
+        backgroundMusicRef.current.play().catch(error => {
+            console.warn("Background music autoplay was prevented. The user may need to interact with the page first.", error);
+        });
+    }
+
+    return () => {
+        if (backgroundMusicRef.current) {
+            backgroundMusicRef.current.pause();
+            backgroundMusicRef.current = null;
+        }
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -40,9 +58,13 @@ export default function PlayerSetup() {
       alert('You need at least 2 players to start!');
       return;
     }
+    
+    if (backgroundMusicRef.current) {
+        backgroundMusicRef.current.pause();
+    }
+
     const audio = new Audio('/game-intro-345507.mp3');
     audio.play();
-
     // Encode player names to be URL-safe and pass them as a query parameter
     const playerQuery = encodeURIComponent(players.join(','));
     router.push(`/game?players=${playerQuery}`);
