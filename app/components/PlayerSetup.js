@@ -40,6 +40,9 @@ export default function PlayerSetup() {
       alert('You need at least 2 players to start!');
       return;
     }
+    const audio = new Audio('/game-intro-345507.mp3');
+    audio.play();
+
     // Encode player names to be URL-safe and pass them as a query parameter
     const playerQuery = encodeURIComponent(players.join(','));
     router.push(`/game?players=${playerQuery}`);

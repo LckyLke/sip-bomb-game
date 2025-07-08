@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Bomb from './Bomb';
@@ -54,6 +54,34 @@ export default function GameBoard() {
   const [randomEvent, setRandomEvent] = useState(null);
   const [gameRules, setGameRules] = useState([]);
 
+  // Audio Ref
+  const backgroundMusic = useRef(null);
+  const [isReady, setIsReady] = useState(false);
+
+
+  // Background Music Handler
+  useEffect(() => {
+    if (isGameActive) {
+      if (!backgroundMusic.current) {
+        backgroundMusic.current = new Audio('/humorous-loop-275485.mp3');
+        backgroundMusic.current.loop = true;
+      }
+      backgroundMusic.current.play().catch(error => console.error("Audio play failed:", error));
+    } else {
+      if (backgroundMusic.current) {
+        backgroundMusic.current.pause();
+      }
+    }
+
+    // Cleanup on component unmount
+    return () => {
+      if (backgroundMusic.current) {
+        backgroundMusic.current.pause();
+        backgroundMusic.current = null;
+      }
+    };
+  }, [isGameActive]);
+
   // Setup game on component mount
   useEffect(() => {
     const playerNames = searchParams.get('players');
@@ -70,12 +98,16 @@ export default function GameBoard() {
       const numPlayers = decodedPlayers.length;
       setBombSips(Math.floor(Math.random() * 11) + 5 * numPlayers + 5); // e.g., 4 players: 25-35 sips
       setBombTimer(Math.floor(Math.random() * 121) + 180); // 3-5 minutes
-      setIsGameActive(true);
+      setIsReady(true);
 
       // Initialize with 2 random challenges
       setAvailableChallenges(getRandomChallenges(challengeComponents));
     }
   }, [searchParams]);
+
+  const handleGameStart = () => {
+    setIsGameActive(true);
+  };
 
   // Game timer countdown
   useEffect(() => {
@@ -83,6 +115,9 @@ export default function GameBoard() {
 
     if (bombTimer <= 0) {
       setIsGameActive(false);
+
+      const audio = new Audio('/game-over-kid-voice-clip-352738.mp3');
+      audio.play();
 
       const distribution = players.reduce((acc, player) => {
         acc[player] = 0;
@@ -142,6 +177,13 @@ export default function GameBoard() {
     // Process result
     if (result.sipsMultiplier || result.timerMultiplier) {
       if (result.sipsMultiplier) {
+          if (result.sipsMultiplier > 1) {
+            const audio = new Audio('/game-over-arcade-6435.mp3');
+            audio.play();
+          } else if (result.sipsMultiplier < 1) {
+            const audio = new Audio('/video-game-bonus-323603.mp3');
+            audio.play();
+          }
           const newSipCount = Math.ceil(bombSips * result.sipsMultiplier);
           setBombSips(newSipCount);
           showNotification(`DANGER! Bomb sips multiplied to ${newSipCount}!`);
@@ -153,6 +195,14 @@ export default function GameBoard() {
       } else {
         sipsIncrease = result.sipsIncrease || 3 * sipsScale; // Default punishment
         showNotification(`Failure! Bomb sips increased by ${sipsIncrease}!`);
+      }
+      if (sipsChange < 0) {
+        const audio = new Audio('/video-game-bonus-323603.mp3');
+        audio.play();
+      }
+      if (sipsIncrease > 0) {
+        const audio = new Audio('/game-over-arcade-6435.mp3');
+        audio.play();
       }
       const newSipCount = bombSips + sipsChange + sipsIncrease;
       setBombSips(newSipCount);
@@ -194,11 +244,15 @@ export default function GameBoard() {
     const finalSipCount = bombSips + sipsChange + sipsIncrease;
     if (result.sipsMultiplier) {
         if (Math.ceil(bombSips * result.sipsMultiplier) <= 0) {
+            const audio = new Audio('/success-fanfare-trumpets-6185.mp3');
+            audio.play();
             setIsGameActive(false);
             setGameMessage({ text: 'CONGRATULATIONS! You defused the Sip Bomb!', type: 'win' });
             setBombSips(0);
         }
     } else if (finalSipCount <= 0) {
+        const audio = new Audio('/success-fanfare-trumpets-6185.mp3');
+        audio.play();
         setIsGameActive(false);
         setGameMessage({ text: 'CONGRATULATIONS! You defused the Sip Bomb!', type: 'win' });
         setBombSips(0);
@@ -209,6 +263,8 @@ export default function GameBoard() {
     if (isGameActive && Math.random() < EVENT_PROBABILITY) {
       const event = generateRandomEvent(players, gameRules);
       if (event) {
+        const audio = new Audio('/movement-swipe-whoosh-3-186577.mp3');
+        audio.play();
         setRandomEvent(event);
         setIsTimerPaused(true);
       }
@@ -223,6 +279,8 @@ export default function GameBoard() {
       showNotification('A new rule has been added!');
     }
     if (randomEvent.type === 'timer_and_sips_doubled') {
+      const audio = new Audio('/game-over-arcade-6435.mp3');
+      audio.play();
       setBombTimer(timer => timer * 2);
       setBombSips(sips => sips * 2);
       showNotification(`Double trouble! Time and sips have been doubled!`);
@@ -247,12 +305,33 @@ export default function GameBoard() {
     }
   };
 
+  if (!isReady) {
+    return <div className="flex h-screen items-center justify-center">Setting up your game...</div>;
+  }
+
+  if (!isGameActive) {
+    return (
+      <div className="flex flex-col h-screen items-center justify-center bg-gray-900 text-white p-4">
+        <div className="text-center">
+          <h1 className="text-5xl font-bold text-yellow-400 mb-4">Get Ready!</h1>
+          <p className="text-xl text-gray-300 mb-8">The bomb is armed. Click below to start the timer.</p>
+          <button
+            onClick={handleGameStart}
+            className="w-full max-w-xs bg-red-600 hover:bg-red-500 text-white font-bold py-4 rounded-lg text-2xl tracking-wider transition-all transform hover:scale-105"
+          >
+            BEGIN
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   if (!isGameActive && !gameMessage.text) {
     return <div className="flex h-screen items-center justify-center">Setting up your game...</div>;
   }
 
   return (
-    <main className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-900 overflow-hidden">
+    <main className="relative flex min-h-screen flex-col items-center justify-center p-4 sm:p-8 bg-gray-900 overflow-hidden">
       {/* Restart Button - only show during active gameplay */}
       {isGameActive && (
         <Link href="/" className="fixed top-4 right-4 z-50 bg-gray-700 hover:bg-gray-600 text-yellow-400 hover:text-yellow-300 p-3 rounded-full shadow-lg transition-all duration-200 transform hover:scale-110">
