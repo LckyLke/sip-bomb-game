@@ -1,12 +1,26 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 export default function PlayerSetup() {
-  const [players, setPlayers] = useState(['Player 1', 'Player 2']);
+  const [players, setPlayers] = useState([]);
   const [newPlayer, setNewPlayer] = useState('');
   const router = useRouter();
+
+  useEffect(() => {
+    try {
+      const savedPlayers = localStorage.getItem('previousPlayers');
+      if (savedPlayers) {
+        setPlayers(JSON.parse(savedPlayers));
+      } else {
+        setPlayers(['Player 1', 'Player 2']);
+      }
+    } catch (error) {
+      console.error("Could not load players from localStorage", error);
+      setPlayers(['Player 1', 'Player 2']);
+    }
+  }, []);
 
   const addPlayer = (e) => {
     e.preventDefault();

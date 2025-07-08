@@ -44,7 +44,14 @@ export default function GameBoard() {
   useEffect(() => {
     const playerNames = searchParams.get('players');
     if (playerNames) {
-      setPlayers(decodeURIComponent(playerNames).split(','));
+      const decodedPlayers = decodeURIComponent(playerNames).split(',');
+      setPlayers(decodedPlayers);
+      try {
+        localStorage.setItem('previousPlayers', JSON.stringify(decodedPlayers));
+      } catch (error) {
+        console.error("Could not save players to localStorage", error);
+      }
+      
       // Randomize initial settings
       setBombSips(Math.floor(Math.random() * 16) + 15); // 15-30 sips
       setBombTimer(Math.floor(Math.random() * 121) + 180); // 3-5 minutes
